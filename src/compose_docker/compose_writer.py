@@ -44,7 +44,7 @@ def build_compose(
         "image": f"{image}:{tag}",
         "container_name": container_name,
         "hostname": container_name,
-        "environment": ["TZ=America/Indianapolis"],
+        "environment": ["TZ=America/Indiana/Indianapolis"],
     }
 
     if volume_paths:
