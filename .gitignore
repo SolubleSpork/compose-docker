@@ -1,0 +1,11 @@
+scratch/
+.deps/
+docker-compose.yml
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.claude/
