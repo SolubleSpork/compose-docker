@@ -1,10 +1,81 @@
 #!/usr/bin/env bash
+# compose-docker installer. Needs only python3 (3.10+): the tool and its
+# pure-Python dependencies are downloaded with Python's standard library,
+# so no pip, venv or apt packages are required. Re-run to upgrade.
 set -euo pipefail
 
-REPO="https://github.com/SolubleSpork/compose-docker"
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "compose-docker needs python3, which wasn't found on this machine." >&2
+    exit 1
+fi
 
 echo "Installing compose-docker..."
-pip3 install --user --break-system-packages --upgrade "git+${REPO}"
+python3 - <<'PY'
+import hashlib, io, json, shutil, sys, tarfile, urllib.request, zipfile
+from pathlib import Path
+
+if sys.version_info < (3, 10):
+    sys.exit(f"compose-docker needs Python 3.10 or newer (found {sys.version.split()[0]}).")
+
+SOURCE = "https://github.com/SolubleSpork/compose-docker/archive/refs/heads/main.tar.gz"
+home = Path.home()
+install_dir = home / ".local" / "share" / "compose-docker"
+bin_path = home / ".local" / "bin" / "composedocker"
+
+
+def fetch(url: str) -> bytes:
+    with urllib.request.urlopen(url, timeout=60) as resp:
+        return resp.read()
+
+
+# Build into a fresh folder, then swap it in, so a failed install never
+# leaves a half-updated copy behind.
+staging = install_dir.with_name("compose-docker.new")
+shutil.rmtree(staging, ignore_errors=True)
+lib = staging / "lib"
+lib.mkdir(parents=True)
+
+print("  Downloading compose-docker")
+with tarfile.open(fileobj=io.BytesIO(fetch(SOURCE)), mode="r:gz") as tar:
+    root = tar.getnames()[0].split("/")[0]
+    def member(path):
+        return tar.extractfile(f"{root}/{path}").read()
+    lock = member("requirements.lock").decode()
+    version = member("version.json")
+    prefix = f"{root}/src/compose_docker/"
+    for info in tar.getmembers():
+        if info.isfile() and info.name.startswith(prefix):
+            target = lib / "compose_docker" / info.name[len(prefix):]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(tar.extractfile(info).read())
+(lib / "compose_docker" / "version.json").write_bytes(version)
+
+for line in lock.splitlines():
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+    spec, sha256 = line.split()
+    name, ver = spec.split("==")
+    print(f"  Downloading {name} {ver}")
+    release = json.loads(fetch(f"https://pypi.org/pypi/{name}/{ver}/json"))
+    wheel = next(f for f in release["urls"] if f["filename"].endswith("-none-any.whl"))
+    data = fetch(wheel["url"])
+    if hashlib.sha256(data).hexdigest() != sha256:
+        sys.exit(f"Checksum mismatch for {wheel['filename']}; aborting.")
+    zipfile.ZipFile(io.BytesIO(data)).extractall(lib)
+
+shutil.rmtree(install_dir, ignore_errors=True)
+staging.rename(install_dir)
+
+bin_path.parent.mkdir(parents=True, exist_ok=True)
+bin_path.unlink(missing_ok=True)
+bin_path.write_text(
+    "#!/bin/sh\n"
+    f'PYTHONPATH="{install_dir / "lib"}" exec python3 -m compose_docker.cli "$@"\n'
+)
+bin_path.chmod(0o755)
+print(f"  Installed to {install_dir}")
+PY
 
 if ! command -v composedocker >/dev/null 2>&1; then
     echo

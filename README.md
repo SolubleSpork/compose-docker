@@ -12,15 +12,14 @@ Interactive CLI that generates a `docker-compose.yml` matching a fixed set of pe
 - Cleanup of an existing compose file: reorders and reformats it to the standard layout (comments kept), and offers each standards fix (timezone, hostname, MAC address, unused ports, file name, etc.) as a separate change you approve or skip
 
 ## Requirements
-- Python 3.10+
-- `pip`
+- Python 3.10+ (included with current Ubuntu/Debian). No pip or other packages needed.
 
 ## Installation / Quick Start
 ```
 curl -sL solublespork.github.io/compose-docker | bash
 ```
 
-That installs a `composedocker` command onto your `PATH` (via `pip3 install --user`, so nothing needs elevated/system-wide access). Run the same command again any time to upgrade to the latest version on `main`.
+That installs a `composedocker` command into `~/.local/bin`, with the tool and its libraries in `~/.local/share/compose-docker`. It's for your user only, so no `sudo` is needed. The installer uses only Python's standard library, and checks every downloaded library against a pinned checksum. Run the same command again any time to upgrade to the latest version on `main`.
 
 ## Configuration
 The first time you run `composedocker`, it asks for a few settings and saves them on that machine at `~/.config/compose-docker/config.yml` (or under `$XDG_CONFIG_HOME` if set). Nothing personal is built into the tool.

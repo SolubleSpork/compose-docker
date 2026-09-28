@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-28
+
+### Changed
+- The installer no longer needs pip: it downloads the tool and its pinned, checksum-verified libraries using only Python's standard library, into `~/.local/share/compose-docker`.
+
+### Fixed
+- Install failed with `pip3: command not found` on machines without pip.
+
 ## [1.0.1] - 2026-09-28
 
 ### Fixed
