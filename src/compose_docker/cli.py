@@ -48,7 +48,7 @@ def run() -> None:
         print("  No declared volumes found.")
 
     restart = prompts.prompt_restart()
-    network_name, ipv4_address = prompts.prompt_network()
+    network_name, ipv4_address, mac_address = prompts.prompt_network()
 
     compose = compose_writer.build_compose(
         image=image,
@@ -58,6 +58,7 @@ def run() -> None:
         restart=restart,
         network_name=network_name,
         ipv4_address=ipv4_address,
+        mac_address=mac_address,
     )
     yaml_text = compose_writer.to_yaml(compose)
 

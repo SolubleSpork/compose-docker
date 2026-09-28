@@ -128,7 +128,7 @@ def _validate_octet(value: str) -> bool | str:
     return True
 
 
-def prompt_network() -> tuple[str, str]:
+def prompt_network() -> tuple[str, str, str]:
     choices = [
         questionary.Choice(title=f"{m.name}  ({m.subnet_prefix}.0/24)", value=m)
         for m in networks.MACVLANS
@@ -144,7 +144,8 @@ def prompt_network() -> tuple[str, str]:
         raise SystemExit("Aborted.")
 
     ip = networks.static_ip(macvlan, int(octet))
-    return macvlan.name, ip
+    mac = networks.mac_address(macvlan, int(octet))
+    return macvlan.name, ip, mac
 
 
 def prompt_confirm_write(target: Path, yaml_text: str) -> bool:

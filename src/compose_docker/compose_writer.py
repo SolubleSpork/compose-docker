@@ -39,6 +39,7 @@ def build_compose(
     restart: str,
     network_name: str,
     ipv4_address: str,
+    mac_address: str,
 ) -> dict:
     service: dict = {
         "image": f"{image}:{tag}",
@@ -50,7 +51,9 @@ def build_compose(
     if volume_paths:
         service["volumes"] = [volume_mount(p) for p in volume_paths]
 
-    service["networks"] = {network_name: {"ipv4_address": ipv4_address}}
+    service["networks"] = {
+        network_name: {"ipv4_address": ipv4_address, "mac_address": mac_address}
+    }
     service["restart"] = restart
 
     return {

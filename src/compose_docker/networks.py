@@ -27,3 +27,14 @@ def static_ip(macvlan: Macvlan, last_octet: int) -> str:
     if not 0 <= last_octet <= 255:
         raise ValueError("Last octet must be between 0 and 255")
     return f"{macvlan.subnet_prefix}.{last_octet}"
+
+
+def mac_address(macvlan: Macvlan, last_octet: int) -> str:
+    """Standard MAC for a macvlan container: 02:VV:VV:00:0I:II, where the
+    VLAN and the IP's last octet are each written in decimal, zero-padded to
+    four digits and split across two MAC octets.
+    e.g. VLAN 20, 192.168.20.111 -> 02:00:20:00:01:11
+    """
+    vlan = f"{macvlan.vlan:04d}"
+    octet = f"{last_octet:04d}"
+    return f"02:{vlan[:2]}:{vlan[2:]}:00:{octet[:2]}:{octet[2:]}"
