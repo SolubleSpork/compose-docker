@@ -60,8 +60,16 @@ def build_compose(
 
 
 def to_yaml(compose: dict) -> str:
-    return yaml.dump(
-        compose, Dumper=_IndentedDumper, sort_keys=False, default_flow_style=False
+    # Dump each top-level section separately so they can be separated by a
+    # blank line (e.g. services, then the external networks definition).
+    return "\n".join(
+        yaml.dump(
+            {key: value},
+            Dumper=_IndentedDumper,
+            sort_keys=False,
+            default_flow_style=False,
+        )
+        for key, value in compose.items()
     )
 
 
