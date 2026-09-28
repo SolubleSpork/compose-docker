@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from . import compose_writer, dockerhub, prompts
 
-# Kept in sync with version.json at release time — a pip package has no
-# build step to read version.json at runtime the way the Vite webapps do.
-__version__ = "0.1.0-beta"
+
+def _read_version() -> str:
+    # Installed: setup.py bundles version.json into the package.
+    # Running from source: fall back to the repo-root copy.
+    here = Path(__file__).resolve().parent
+    for candidate in (here / "version.json", here.parents[1] / "version.json"):
+        if candidate.exists():
+            return json.loads(candidate.read_text())["version"]
+    return "unknown"
+
+
+__version__ = _read_version()
 
 
 def _default_container_name(image: str) -> str:
