@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-28
+
+### Fixed
+- Install command works now that the repo is public, and is shorter: `curl -sL solublespork.github.io/compose-docker | bash`.
+
 ## [1.0.0] - 2026-09-28
 
 ### Added

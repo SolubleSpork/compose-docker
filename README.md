@@ -17,7 +17,7 @@ Interactive CLI that generates a `docker-compose.yml` matching a fixed set of pe
 
 ## Installation / Quick Start
 ```
-curl -fsSL https://raw.githubusercontent.com/SolubleSpork/compose-docker/main/install.sh | bash
+curl -sL solublespork.github.io/compose-docker | bash
 ```
 
 That installs a `composedocker` command onto your `PATH` (via `pip3 install --user`, so nothing needs elevated/system-wide access). Run the same command again any time to upgrade to the latest version on `main`.
@@ -52,7 +52,7 @@ composedocker --version
 ```
 
 ## Development & Releases
-`main` is both the working branch and the source the install command above pulls from — there is no separate release branch. Changes only reach users once they're pushed to `main`, so all work stays local and is tested with `pip install -e .` until it's confirmed working.
+`main` is both the working branch and the source the install command above pulls from (the install script is `index.html`, served by GitHub Pages) — there is no separate release branch. Changes only reach users once they're pushed to `main`, so all work stays local and is tested there until it's confirmed working.
 
 ## License
 MIT
