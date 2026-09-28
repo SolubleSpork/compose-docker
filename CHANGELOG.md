@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-28
+
 ### Added
 - Per-machine settings file (timezone, Docker Hub account, macvlan networks) created by a first-run setup, editable with `--setup`. Existing macvlans are detected in Docker and offered for import; new ones can be added from the network picker, and a missing macvlan can be created in Docker.
 - `--dry-run` flag: shows the resulting compose file without writing, backing up or renaming anything.
