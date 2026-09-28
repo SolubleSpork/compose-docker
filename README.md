@@ -8,7 +8,8 @@ Interactive CLI that generates a `docker-compose.yml` matching a fixed set of pe
 - `container_name` defaulted from the image name (editable), `hostname` always mirrored from it
 - Bind-mount volumes auto-detected from the image's declared `VOLUME` paths — no guessing container-side paths
 - Restart policy selection (defaults to `unless-stopped`)
-- macvlan network assignment: pick a VLAN, enter the last IP octet, get a static `ipv4_address` wired up automatically
+- macvlan network assignment: pick a VLAN, enter the last IP octet, get a static `ipv4_address` and matching `mac_address` wired up automatically
+- Cleanup of an existing compose file: reorders and reformats it to the standard layout (comments kept), and offers each standards fix (timezone, hostname, MAC address, unused ports, file name, etc.) as a separate change you approve or skip
 
 ## Requirements
 - Python 3.10+
@@ -30,7 +31,9 @@ cd ~/docker/some-project
 composedocker
 ```
 
-Walks through image selection, tag, container name, volumes, restart policy, and network in order, then shows a preview of the generated `docker-compose.yml` before writing it to the current directory (asks for confirmation if a file already exists there).
+Walks through image selection, tag, container name, volumes, restart policy, and network in order, then shows a preview of the generated `docker-compose.yml` before writing it to the current directory.
+
+If the folder already has a compose file (`docker-compose.yml`, `docker-compose.yaml`, `compose.yml` or `compose.yaml`), you're asked whether to clean it up, start fresh, or quit. Cleaning up lists each change needed to match the standards, one at a time, so you can keep deliberate deviations. You're then shown a preview of the result. Before anything is overwritten, you can save a date-stamped backup (e.g. `docker-compose.yml.2026-09-28.bak`), which never replaces an existing `.bak` file.
 
 ```
 composedocker --version

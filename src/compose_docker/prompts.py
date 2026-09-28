@@ -148,15 +148,34 @@ def prompt_network() -> tuple[str, str, str]:
     return macvlan.name, ip, mac
 
 
-def prompt_confirm_write(target: Path, yaml_text: str) -> bool:
-    print("\n--- Generated docker-compose.yml ---")
-    print(yaml_text)
-    print("-------------------------------------")
+def prompt_existing_file(path: Path) -> str:
+    choice = questionary.select(
+        f"Found {path.name} in this folder. What do you want to do?",
+        choices=[
+            questionary.Choice("Clean up existing file", value="cleanup"),
+            questionary.Choice("Start fresh", value="fresh"),
+            questionary.Choice("Quit", value="quit"),
+        ],
+    ).ask()
+    return choice or "quit"
 
-    message = (
-        f"'{target}' already exists — overwrite it?"
-        if target.exists()
-        else f"Write to '{target}'?"
-    )
-    confirmed = questionary.confirm(message, default=not target.exists()).ask()
-    return bool(confirmed)
+
+def prompt_change(description: str) -> bool:
+    answer = questionary.confirm(f"{description}  — apply?", default=True).ask()
+    if answer is None:
+        raise SystemExit("Aborted.")
+    return answer
+
+
+def prompt_backup(path: Path) -> bool:
+    answer = questionary.confirm(f"Save a backup of {path.name} first?", default=True).ask()
+    if answer is None:
+        raise SystemExit("Aborted.")
+    return answer
+
+
+def prompt_confirm_write(title: str, yaml_text: str, message: str, default: bool) -> bool:
+    print(f"\n--- {title} ---")
+    print(yaml_text)
+    print("-" * (len(title) + 8))
+    return bool(questionary.confirm(message, default=default).ask())

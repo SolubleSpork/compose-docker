@@ -12,7 +12,7 @@ license = { text = "MIT" }
 dependencies = [
     "requests>=2.31",
     "questionary>=2.0",
-    "PyYAML>=6.0",
+    "ruamel.yaml>=0.18",
 ]
 
 [project.scripts]

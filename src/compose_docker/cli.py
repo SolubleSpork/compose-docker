@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
-from . import compose_writer, dockerhub, prompts
+from ruamel.yaml.error import YAMLError
+
+from . import cleanup, compose_writer, dockerhub, prompts
 
 
 def _read_version() -> str:
@@ -27,9 +30,69 @@ def _default_container_name(image: str) -> str:
     return image.rstrip("/").split("/")[-1]
 
 
+def _backup(path: Path) -> None:
+    if prompts.prompt_backup(path):
+        backup = cleanup.backup_path(path)
+        shutil.copy2(path, backup)
+        print(f"Saved backup to {backup.name}")
+
+
 def run() -> None:
     print(f"composedocker v{__version__}\n")
 
+    existing = cleanup.find_compose_files(Path.cwd())
+    if len(existing) > 1:
+        names = ", ".join(p.name for p in existing)
+        raise SystemExit(
+            f"Found more than one compose file ({names}). "
+            "Remove or rename the extras, then run again."
+        )
+    current = existing[0] if existing else None
+
+    if current is not None:
+        choice = prompts.prompt_existing_file(current)
+        if choice == "quit":
+            return
+        if choice == "cleanup":
+            run_cleanup(current)
+            return
+
+    run_generate(current)
+
+
+def run_cleanup(path: Path) -> None:
+    try:
+        plan = cleanup.plan(path)
+    except (ValueError, YAMLError) as exc:
+        raise SystemExit(f"Couldn't read {path.name}: {exc}")
+
+    approved = []
+    if plan.changes:
+        print(f"\n{len(plan.changes)} change(s) to match the standards:")
+        approved = [c for c in plan.changes if prompts.prompt_change(c.description)]
+    else:
+        print("No standards changes needed.")
+
+    new_text = cleanup.render(plan, approved)
+    target = path.with_name(cleanup.STANDARD_NAME) if any(c.rename for c in approved) else path
+    if new_text == plan.text and target == path:
+        print(f"{path.name} is already clean. Nothing to change.")
+        return
+
+    message = f"Write changes to {target.name}"
+    message += f" (replacing {path.name})?" if target != path else "?"
+    if not prompts.prompt_confirm_write(f"Cleaned-up {target.name}", new_text, message, True):
+        print("Not written.")
+        return
+
+    _backup(path)
+    compose_writer.write(target, new_text)
+    if target != path:
+        path.unlink()
+    print(f"Wrote {target}")
+
+
+def run_generate(existing: Path | None) -> None:
     image = prompts.prompt_image()
     tag = prompts.prompt_tag(image)
 
@@ -62,12 +125,24 @@ def run() -> None:
     )
     yaml_text = compose_writer.to_yaml(compose)
 
-    target = Path.cwd() / "docker-compose.yml"
-    if not prompts.prompt_confirm_write(target, yaml_text):
+    target = Path.cwd() / cleanup.STANDARD_NAME
+    if existing is None:
+        message = f"Write to {target.name}?"
+    elif existing == target:
+        message = f"Overwrite existing {target.name}?"
+    else:
+        message = f"Write {target.name} and remove existing {existing.name}?"
+    if not prompts.prompt_confirm_write(
+        f"Generated {target.name}", yaml_text, message, existing is None
+    ):
         print("Not written.")
         return
 
+    if existing is not None:
+        _backup(existing)
     compose_writer.write(target, yaml_text)
+    if existing is not None and existing != target:
+        existing.unlink()
     print(f"Wrote {target}")
 
 
