@@ -36,6 +36,7 @@ Walks through image selection, tag, container name, volumes, restart policy, and
 If the folder already has a compose file (`docker-compose.yml`, `docker-compose.yaml`, `compose.yml` or `compose.yaml`), you're asked whether to clean it up, start fresh, or quit. Cleaning up lists each change needed to match the standards, one at a time, so you can keep deliberate deviations. You're then shown a preview of the result. Before anything is overwritten, you can save a date-stamped backup (e.g. `docker-compose.yml.2026-09-28.bak`), which never replaces an existing `.bak` file.
 
 ```
+composedocker --dry-run    # show the result without writing anything
 composedocker --version
 ```
 

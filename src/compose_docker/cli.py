@@ -37,7 +37,14 @@ def _backup(path: Path) -> None:
         print(f"Saved backup to {backup.name}")
 
 
-def run() -> None:
+def _dry_run_preview(title: str, yaml_text: str) -> None:
+    print(f"\n--- {title} ---")
+    print(yaml_text)
+    print("-" * (len(title) + 8))
+    print("Dry run: nothing written.")
+
+
+def run(dry_run: bool = False) -> None:
     print(f"composedocker v{__version__}\n")
 
     existing = cleanup.find_compose_files(Path.cwd())
@@ -54,13 +61,13 @@ def run() -> None:
         if choice == "quit":
             return
         if choice == "cleanup":
-            run_cleanup(current)
+            run_cleanup(current, dry_run)
             return
 
-    run_generate(current)
+    run_generate(current, dry_run)
 
 
-def run_cleanup(path: Path) -> None:
+def run_cleanup(path: Path, dry_run: bool) -> None:
     try:
         plan = cleanup.plan(path)
     except (ValueError, YAMLError) as exc:
@@ -79,6 +86,10 @@ def run_cleanup(path: Path) -> None:
         print(f"{path.name} is already clean. Nothing to change.")
         return
 
+    if dry_run:
+        _dry_run_preview(f"Cleaned-up {target.name}", new_text)
+        return
+
     message = f"Write changes to {target.name}"
     message += f" (replacing {path.name})?" if target != path else "?"
     if not prompts.prompt_confirm_write(f"Cleaned-up {target.name}", new_text, message, True):
@@ -92,7 +103,7 @@ def run_cleanup(path: Path) -> None:
     print(f"Wrote {target}")
 
 
-def run_generate(existing: Path | None) -> None:
+def run_generate(existing: Path | None, dry_run: bool) -> None:
     image = prompts.prompt_image()
     tag = prompts.prompt_tag(image)
 
@@ -126,6 +137,10 @@ def run_generate(existing: Path | None) -> None:
     yaml_text = compose_writer.to_yaml(compose)
 
     target = Path.cwd() / cleanup.STANDARD_NAME
+    if dry_run:
+        _dry_run_preview(f"Generated {target.name}", yaml_text)
+        return
+
     if existing is None:
         message = f"Write to {target.name}?"
     elif existing == target:
@@ -151,10 +166,15 @@ def main() -> None:
     parser.add_argument(
         "-v", "--version", action="version", version=f"composedocker v{__version__}"
     )
-    parser.parse_args()
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show the resulting compose file without writing anything",
+    )
+    args = parser.parse_args()
 
     try:
-        run()
+        run(dry_run=args.dry_run)
     except KeyboardInterrupt:
         print("\nAborted.")
         sys.exit(1)
