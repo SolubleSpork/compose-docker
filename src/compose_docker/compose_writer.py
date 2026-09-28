@@ -8,8 +8,6 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
-TIMEZONE = "America/Indiana/Indianapolis"
-
 # Standard key order within a service (see GitHub issue #5). Keys not listed
 # here keep their original relative order and go between "networks" and
 # "restart", so "restart" is always last.
@@ -62,12 +60,13 @@ def build_compose(
     network_name: str,
     ipv4_address: str,
     mac_address: str,
+    timezone: str,
 ) -> dict:
     service: dict = {
         "image": f"{image}:{tag}",
         "container_name": container_name,
         "hostname": container_name,
-        "environment": [f"TZ={TIMEZONE}"],
+        "environment": [f"TZ={timezone}"],
     }
 
     if volume_paths:

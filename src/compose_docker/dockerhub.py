@@ -13,13 +13,6 @@ NAMESPACE_REPOS_URL = "https://hub.docker.com/v2/repositories/{namespace}/"
 AUTH_URL = "https://auth.docker.io/token"
 REGISTRY_URL = "https://registry-1.docker.io"
 
-# Boosted in the image picker so your own low-traffic images surface even for a
-# short prefix — Docker Hub's search API tokenizes on hyphens (each segment must
-# match a whole word), which makes it unreliable for hyphenated names like
-# "pto-tracker" while still mid-typing. Listing the namespace directly sidesteps
-# that entirely since it doesn't go through the search/query tokenizer.
-PERSONAL_NAMESPACE = "solublespork"
-
 MANIFEST_ACCEPT = ", ".join(
     [
         "application/vnd.oci.image.index.v1+json",
@@ -57,9 +50,12 @@ def search_repositories(query: str, page_size: int = 10) -> list[dict]:
     return resp.json().get("results", [])
 
 
-def list_namespace_repos(namespace: str = PERSONAL_NAMESPACE, page_size: int = 100) -> list[dict]:
+def list_namespace_repos(namespace: str, page_size: int = 100) -> list[dict]:
     """List all repos under a namespace directly — not a search query, so it's
-    immune to the hyphen-tokenization issue in search_repositories()."""
+    immune to the hyphen-tokenization issue in search_repositories(). Used to
+    list the user's own (often low-traffic, hyphenated) images first in the
+    image picker, since Docker Hub search tokenizes on hyphens and can't find
+    names like "pto-tracker" while they're still being typed."""
     try:
         resp = requests.get(
             NAMESPACE_REPOS_URL.format(namespace=namespace),

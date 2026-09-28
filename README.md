@@ -8,7 +8,7 @@ Interactive CLI that generates a `docker-compose.yml` matching a fixed set of pe
 - `container_name` defaulted from the image name (editable), `hostname` always mirrored from it
 - Bind-mount volumes auto-detected from the image's declared `VOLUME` paths — no guessing container-side paths
 - Restart policy selection (defaults to `unless-stopped`)
-- macvlan network assignment: pick a VLAN, enter the last IP octet, get a static `ipv4_address` and matching `mac_address` wired up automatically
+- macvlan network assignment: pick one of your macvlans, enter the IP, get a static `ipv4_address` and matching `mac_address` (`02:VV:VV:00:0I:II`, from the VLAN and the IP's last octet) wired up automatically; missing macvlans can be created in Docker for you
 - Cleanup of an existing compose file: reorders and reformats it to the standard layout (comments kept), and offers each standards fix (timezone, hostname, MAC address, unused ports, file name, etc.) as a separate change you approve or skip
 
 ## Requirements
@@ -23,7 +23,17 @@ curl -fsSL https://raw.githubusercontent.com/SolubleSpork/compose-docker/main/in
 That installs a `composedocker` command onto your `PATH` (via `pip3 install --user`, so nothing needs elevated/system-wide access). Run the same command again any time to upgrade to the latest version on `main`.
 
 ## Configuration
-None — all inputs are gathered interactively when you run the tool.
+The first time you run `composedocker`, it asks for a few settings and saves them on that machine at `~/.config/compose-docker/config.yml` (or under `$XDG_CONFIG_HOME` if set). Nothing personal is built into the tool.
+
+| Setting | What it's for |
+|---|---|
+| `timezone` | `TZ` value given to every container (defaults to the machine's timezone) |
+| `dockerhub_account` | Your Docker Hub account; its images are listed first in the image search. Optional. |
+| `macvlans` | Your macvlan networks: `name`, `vlan`, `subnet`, `gateway`, `parent` (host interface) |
+
+During setup, macvlan networks that already exist in Docker are detected and offered for import. More can be added any time from the network picker ("Add a new macvlan…"). If a chosen macvlan doesn't exist in Docker yet, the tool offers to create it.
+
+Change settings later with `composedocker --setup`, or edit the file directly.
 
 ## Usage
 ```
@@ -37,6 +47,7 @@ If the folder already has a compose file (`docker-compose.yml`, `docker-compose.
 
 ```
 composedocker --dry-run    # show the result without writing anything
+composedocker --setup      # change saved settings and macvlans
 composedocker --version
 ```
 

@@ -5,6 +5,7 @@ separate change the user can approve or skip."""
 from __future__ import annotations
 
 import io
+import ipaddress
 import re
 from dataclasses import dataclass, field
 from datetime import date
@@ -16,13 +17,11 @@ from ruamel.yaml.error import CommentMark
 from ruamel.yaml.tokens import CommentToken
 
 from . import compose_writer, networks
+from .config import Config
 
 STANDARD_NAME = "docker-compose.yml"
 # The file names Docker Compose itself recognizes.
 COMPOSE_NAMES = ["compose.yaml", "compose.yml", "docker-compose.yaml", STANDARD_NAME]
-
-_MACVLANS = {m.name: m for m in networks.MACVLANS}
-
 
 def find_compose_files(directory: Path) -> list[Path]:
     return [directory / name for name in COMPOSE_NAMES if (directory / name).is_file()]
@@ -67,10 +66,10 @@ def load(text: str) -> CommentedMap:
 # --- Finding changes ---------------------------------------------------------
 
 
-def _service_macvlans(service: CommentedMap) -> list[str]:
+def _service_macvlans(service: CommentedMap, cfg: Config) -> list[str]:
     nets = service.get("networks")
     if isinstance(nets, (dict, list)):
-        return [n for n in nets if n in _MACVLANS]
+        return [n for n in nets if cfg.macvlan(n)]
     return []
 
 
@@ -85,15 +84,15 @@ def _tz_value(env) -> str | None:
     return None
 
 
-def _set_tz(service: CommentedMap) -> None:
+def _set_tz(service: CommentedMap, timezone: str) -> None:
     env = service.get("environment")
     if isinstance(env, dict):
-        env["TZ"] = compose_writer.TIMEZONE
+        env["TZ"] = timezone
         return
     if not isinstance(env, list):
         env = CommentedSeq()
         service["environment"] = env
-    entry = f"TZ={compose_writer.TIMEZONE}"
+    entry = f"TZ={timezone}"
     for i, item in enumerate(env):
         if isinstance(item, str) and item.startswith("TZ="):
             env[i] = entry
@@ -101,7 +100,7 @@ def _set_tz(service: CommentedMap) -> None:
     env.append(entry)
 
 
-def _service_changes(name: str, service: CommentedMap) -> list[Change]:
+def _service_changes(name: str, service: CommentedMap, cfg: Config) -> list[Change]:
     changes: list[Change] = []
 
     def svc(data: CommentedMap) -> CommentedMap:
@@ -123,13 +122,13 @@ def _service_changes(name: str, service: CommentedMap) -> list[Change]:
         ))
 
     tz = _tz_value(service.get("environment"))
-    if tz != compose_writer.TIMEZONE:
+    if tz != cfg.timezone:
         changes.append(Change(
-            f"[{name}] TZ: {tz if tz is not None else '(missing)'} → {compose_writer.TIMEZONE}",
-            lambda d: _set_tz(svc(d)),
+            f"[{name}] TZ: {tz if tz is not None else '(missing)'} → {cfg.timezone}",
+            lambda d: _set_tz(svc(d), cfg.timezone),
         ))
 
-    macvlans = _service_macvlans(service)
+    macvlans = _service_macvlans(service, cfg)
     if not macvlans:
         return changes
 
@@ -144,11 +143,16 @@ def _service_changes(name: str, service: CommentedMap) -> list[Change]:
     if not isinstance(nets, dict):
         return changes
     for net_name in macvlans:
+        macvlan = cfg.macvlan(net_name)
         net = nets.get(net_name)
         ip = net.get("ipv4_address") if isinstance(net, dict) else None
-        if not ip or not str(ip).startswith(_MACVLANS[net_name].subnet_prefix + "."):
+        try:
+            in_subnet = ip and ipaddress.IPv4Address(str(ip)) in macvlan.network
+        except ValueError:
+            in_subnet = False
+        if not in_subnet:
             continue
-        expected = networks.mac_address(_MACVLANS[net_name], int(str(ip).rsplit(".", 1)[1]))
+        expected = networks.mac_address(macvlan, networks.last_octet(str(ip)))
         current = net.get("mac_address")
         if current != expected:
             changes.append(Change(
@@ -171,7 +175,9 @@ _COMMENTED_ITEM = re.compile(r"^\s*#\s*-\s")
 _SERVICES_LINE = re.compile(r"^services\s*:")
 
 
-def _commented_ports_blocks(text: str, data: CommentedMap) -> list[tuple[str, Change]]:
+def _commented_ports_blocks(
+    text: str, data: CommentedMap, cfg: Config
+) -> list[tuple[str, Change]]:
     """Find commented-out 'ports:' blocks inside macvlan services, paired
     with the service they belong to."""
     lines = text.splitlines()
@@ -199,7 +205,7 @@ def _commented_ports_blocks(text: str, data: CommentedMap) -> list[tuple[str, Ch
             while end < len(lines) and _COMMENTED_ITEM.match(lines[end]):
                 end += 1
             service = data["services"].get(current)
-            if isinstance(service, dict) and _service_macvlans(service):
+            if isinstance(service, dict) and _service_macvlans(service, cfg):
                 items = ", ".join(l.split("-", 1)[1].strip() for l in lines[i + 1:end])
                 changes.append((current, Change(
                     f"[{current}] commented-out ports: remove ({items or 'empty'})",
@@ -211,7 +217,7 @@ def _commented_ports_blocks(text: str, data: CommentedMap) -> list[tuple[str, Ch
     return changes
 
 
-def plan(path: Path) -> Plan:
+def plan(path: Path, cfg: Config) -> Plan:
     text = path.read_text()
     data = load(text)
     result = Plan(path=path, text=text)
@@ -221,10 +227,10 @@ def plan(path: Path) -> Plan:
             f"version: remove ({data['version']}); obsolete in current Docker Compose",
             lambda d: d.pop("version", None),
         ))
-    commented_ports = _commented_ports_blocks(text, data)
+    commented_ports = _commented_ports_blocks(text, data, cfg)
     for name, service in data["services"].items():
         if isinstance(service, CommentedMap):
-            result.changes.extend(_service_changes(name, service))
+            result.changes.extend(_service_changes(name, service, cfg))
             result.changes.extend(c for s, c in commented_ports if s == name)
     if path.name != STANDARD_NAME:
         result.changes.append(Change(f"file name: {path.name} → {STANDARD_NAME}", rename=True))
